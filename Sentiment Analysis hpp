@@ -1,0 +1,46 @@
+#ifndef SENTIMENTANALYSIS_HPP
+#define SENTIMENTANALYSIS_HPP
+
+#include <string>
+#include <algorithm>
+#include <iostream>
+#include <fstream> // Include for file handling
+#include "DynamicArray.hpp"
+
+// Struct for word frequency
+struct WordFrequencyPair {
+    std::string word;
+    int frequency;
+
+    WordFrequencyPair() : word(""), frequency(0) {} // Default constructor
+    WordFrequencyPair(const std::string& w, int f) : word(w), frequency(f) {} // Parameterized constructor
+};
+
+// Class for sentiment analysis
+class SentimentAnalysis {
+private:
+    DynamicArray<std::string> positiveWords;
+    DynamicArray<std::string> negativeWords;
+
+    void loadWords(const std::string& filename, DynamicArray<std::string>& wordArray);
+    void analyzeReview(const std::string& review, int userRating,
+        DynamicArray<WordFrequencyPair>& positiveWordFrequency,
+        DynamicArray<WordFrequencyPair>& negativeWordFrequency,
+        bool useBinarySearch, double& totalSentimentScore, int& totalPositiveCount, int& totalNegativeCount);
+    int countWordsInReview(DynamicArray<std::string>& reviewTokens, DynamicArray<std::string>& wordArray,
+        DynamicArray<WordFrequencyPair>& wordFrequencyArray, bool useBinarySearch);
+    double calculateSentimentScore(int positiveCount, int negativeCount);
+    void compareSentimentWithRating(double sentimentScore, int userRating);
+    void displayTop5Words(DynamicArray<WordFrequencyPair>& wordFrequencyArray, const std::string& category);
+
+public:
+    SentimentAnalysis();
+    void loadPositiveWords(const std::string& filename);
+    void loadNegativeWords(const std::string& filename);
+    void analyzeMultipleReviews(DynamicArray<std::string>& reviews,
+        DynamicArray<int>& ratings, bool useBinarySearch);
+    void displayWordFrequencies(DynamicArray<WordFrequencyPair>& wordFrequencyArray, const std::string& category);
+    bool binarySearch(const std::string& word, DynamicArray<std::string>& wordArray);
+};
+
+#endif // SENTIMENTANALYSIS_HPP
