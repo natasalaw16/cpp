@@ -1,0 +1,231 @@
+#include "SentimentAnalysis.hpp"
+#include <fstream>
+#include <sstream>
+#include <cctype>
+#include <iostream>
+
+// Manually convert string to lowercase
+std::string toLowerCase(const std::string& str) {
+    std::string lowerStr = str;
+    for (char& c : lowerStr) {
+        c = std::tolower(c);
+    }
+    return lowerStr;
+}
+
+// Constructor
+SentimentAnalysis::SentimentAnalysis() {}
+
+// Load words from a file into a DynamicArray
+void loadWords(const std::string& filename, DynamicArray<std::string>& wordArray) {
+    std::ifstream file(filename);
+    std::string word;
+    while (file >> word) {
+        wordArray.add(toLowerCase(word)); // Store in lowercase
+    }
+    file.close();
+}
+
+// Load positive words
+void SentimentAnalysis::loadPositiveWords(const std::string& filename) {
+    loadWords(filename, this->positiveWords);
+}
+
+// Load negative words
+void SentimentAnalysis::loadNegativeWords(const std::string& filename) {
+    loadWords(filename, this->negativeWords);
+}
+
+// Helper function to clean review by removing punctuation and making everything lowercase
+std::string cleanReview(const std::string& review) {
+    std::string cleanedReview = review;
+    cleanedReview.erase(std::remove_if(cleanedReview.begin(), cleanedReview.end(),
+        [](unsigned char c) { return std::ispunct(c); }), cleanedReview.end());
+    return toLowerCase(cleanedReview);  // Convert to lowercase
+}
+
+// Tokenizes a string into a DynamicArray of words
+DynamicArray<std::string> tokenize(const std::string& str) {
+    std::istringstream iss(str);
+    DynamicArray<std::string> tokens;
+    std::string word;
+    while (iss >> word) {
+        tokens.add(word);
+    }
+    return tokens;
+}
+
+// Binary search function
+bool SentimentAnalysis::binarySearch(const std::string& word, DynamicArray<std::string>& wordArray) {
+    int left = 0;
+    int right = wordArray.getSize() - 1;
+
+    while (left <= right) {
+        int mid = left + (right - left) / 2;
+
+        if (wordArray[mid] == word) {
+            return true;
+        }
+        if (wordArray[mid] < word) {
+            left = mid + 1;
+        }
+        else {
+            right = mid - 1;
+        }
+    }
+    return false;
+}
+
+// Count occurrences of words in a tokenized review with support for binary search
+int SentimentAnalysis::countWordsInReview(DynamicArray<std::string>& reviewTokens,
+    DynamicArray<std::string>& wordArray,
+    DynamicArray<WordFrequencyPair>& wordFrequencyArray,
+    bool useBinarySearch) {
+    int wordFrequency = 0;
+
+    for (int i = 0; i < reviewTokens.getSize(); ++i) {
+        bool found = false;
+        if (useBinarySearch) {
+            found = binarySearch(reviewTokens[i], wordArray);
+        }
+        else {
+            // Linear search
+            for (int j = 0; j < wordArray.getSize(); ++j) {
+                if (wordArray[j] == reviewTokens[i]) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (found) {
+            wordFrequency++;
+            bool wordExists = false;
+            for (int k = 0; k < wordFrequencyArray.getSize(); ++k) {
+                if (wordFrequencyArray[k].word == reviewTokens[i]) {
+                    wordFrequencyArray[k].frequency++;
+                    wordExists = true;
+                    break;
+                }
+            }
+            if (!wordExists) {
+                wordFrequencyArray.add(WordFrequencyPair(reviewTokens[i], 1));
+            }
+        }
+    }
+    return wordFrequency;
+}
+
+// Calculate sentiment score (1-5)
+double SentimentAnalysis::calculateSentimentScore(int positiveCount, int negativeCount) {
+    if (positiveCount + negativeCount == 0) {
+        return 0; // Avoid division by zero
+    }
+    return static_cast<double>(positiveCount) / (positiveCount + negativeCount) * 5; // Scale to 5
+}
+
+// Compare sentiment score with user rating
+void SentimentAnalysis::compareSentimentWithRating(double sentimentScore, int userRating) {
+    if (userRating < 3 && sentimentScore >= 3) {
+        std::cout << "Sentiment score indicates a more positive experience than the rating given." << std::endl;
+    }
+    else if (userRating >= 3 && sentimentScore < 3) {
+        std::cout << "Sentiment score indicates a more negative experience than the rating given." << std::endl;
+    }
+}
+
+// Analyze a single review
+void SentimentAnalysis::analyzeReview(const std::string& review, int userRating,
+    DynamicArray<WordFrequencyPair>& positiveWordFrequency,
+    DynamicArray<WordFrequencyPair>& negativeWordFrequency,
+    bool useBinarySearch, double& totalSentimentScore, int& totalPositiveCount, int& totalNegativeCount) {
+
+    std::string cleanedReview = cleanReview(review);
+    DynamicArray<std::string> reviewTokens = tokenize(cleanedReview);
+
+    int positiveCount = countWordsInReview(reviewTokens, positiveWords, positiveWordFrequency, useBinarySearch);
+    int negativeCount = countWordsInReview(reviewTokens, negativeWords, negativeWordFrequency, useBinarySearch);
+
+    double sentimentScore = calculateSentimentScore(positiveCount, negativeCount);
+    compareSentimentWithRating(sentimentScore, userRating);
+
+    totalSentimentScore += sentimentScore;
+    totalPositiveCount += positiveCount;
+    totalNegativeCount += negativeCount;
+
+    // Updated output to include user rating
+    std::cout << "Review: " << review << std::endl;
+    std::cout << "User Rating: " << userRating << std::endl; // Add user rating
+    std::cout << "Positive Count: " << positiveCount << ", Negative Count: " << negativeCount << std::endl;
+    std::cout << "Sentiment Score: " << sentimentScore << std::endl;
+}
+
+
+// Analyze multiple reviews
+void SentimentAnalysis::analyzeMultipleReviews(DynamicArray<std::string>& reviews,
+    DynamicArray<int>& ratings,
+    bool useBinarySearch) {
+    DynamicArray<WordFrequencyPair> positiveWordFrequency;
+    DynamicArray<WordFrequencyPair> negativeWordFrequency;
+    double totalSentimentScore = 0;
+    int totalPositiveCount = 0;
+    int totalNegativeCount = 0;
+
+    for (int i = 0; i < reviews.getSize(); ++i) {
+        analyzeReview(reviews[i], ratings[i], positiveWordFrequency, negativeWordFrequency, useBinarySearch, totalSentimentScore, totalPositiveCount, totalNegativeCount);
+    }
+
+    int totalReviews = reviews.getSize();
+    double averageSentimentScore = totalReviews > 0 ? totalSentimentScore / totalReviews : 0;
+
+    std::cout << "\nFinal Statistics for " << (useBinarySearch ? "Binary" : "Linear") << " Search:" << std::endl;
+    std::cout << "Total Reviews: " << totalReviews << std::endl;
+    std::cout << "Total Positive Word Counts: " << totalPositiveCount << std::endl;
+    std::cout << "Total Negative Word Counts: " << totalNegativeCount << std::endl;
+    std::cout << "Average Sentiment Score: " << averageSentimentScore << std::endl;
+
+    // Display top 5 words
+    displayTop5Words(positiveWordFrequency, "Positive");
+    displayTop5Words(negativeWordFrequency, "Negative");
+}
+
+// Display word frequencies
+void SentimentAnalysis::displayWordFrequencies(DynamicArray<WordFrequencyPair>& wordFrequencyArray, const std::string& category) {
+    std::cout << category << " Frequency:" << std::endl;
+    for (int i = 0; i < wordFrequencyArray.getSize(); ++i) {
+        std::cout << wordFrequencyArray[i].word << ": " << wordFrequencyArray[i].frequency << std::endl;
+    }
+}
+
+// Load words from a file into a DynamicArray
+void SentimentAnalysis::loadWords(const std::string& filename, DynamicArray<std::string>& wordArray) {
+    std::ifstream file(filename);
+    std::string word;
+    while (file >> word) {
+        wordArray.add(toLowerCase(word)); // Store in lowercase
+    }
+    file.close();
+}
+
+// Display top 5 maximum and minimum word frequencies
+void SentimentAnalysis::displayTop5Words(DynamicArray<WordFrequencyPair>& wordFrequencyArray, const std::string& category) {
+    std::cout << "\nTop 5 " << category << " Word Frequencies:" << std::endl;
+
+    // Sort by frequency (descending)
+    std::sort(wordFrequencyArray.begin(), wordFrequencyArray.end(),
+        [](const WordFrequencyPair& a, const WordFrequencyPair& b) {
+            return a.frequency > b.frequency;
+        });
+
+    // Display top 5
+    for (int i = 0; i < std::min(5, wordFrequencyArray.getSize()); ++i) {
+        std::cout << wordFrequencyArray[i].word << ": " << wordFrequencyArray[i].frequency << std::endl;
+    }
+
+    std::cout << "\nBottom 5 " << category << " Word Frequencies:" << std::endl;
+
+    // Display bottom 5
+    for (int i = wordFrequencyArray.getSize() - 1; i >= std::max(0, wordFrequencyArray.getSize() - 5); --i) {
+        std::cout << wordFrequencyArray[i].word << ": " << wordFrequencyArray[i].frequency << std::endl;
+    }
+}
