@@ -1,0 +1,58 @@
+#include "SentimentAnalysis.hpp"
+#include <fstream>
+#include <sstream>
+#include <iostream>
+
+int main() {
+    SentimentAnalysis analyzer;
+
+    // Load positive and negative words
+    analyzer.loadPositiveWords("positive-words.txt");
+    analyzer.loadNegativeWords("negative-words.txt");
+
+    // Open the CSV file for reading reviews
+    std::ifstream file("tripadvisor_hotel_reviews.csv");
+    if (!file.is_open()) {
+        std::cerr << "Error opening file!" << std::endl;
+        return 1;
+    }
+
+    std::string line;
+    DynamicArray<std::string> reviews;
+    DynamicArray<int> ratings;
+
+    // Skip the first line (header)
+    std::getline(file, line);
+
+    // Read each line from the CSV file
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string review, ratingStr;
+
+        if (line.front() == '"') {
+            size_t quoteEnd = line.find("\",");
+            if (quoteEnd != std::string::npos) {
+                review = line.substr(1, quoteEnd - 1);
+                ratingStr = line.substr(quoteEnd + 2);
+            }
+        }
+        else {
+            std::getline(ss, review, ',');
+            std::getline(ss, ratingStr, ',');
+        }
+
+        int userRating = std::stoi(ratingStr);
+        reviews.add(review);
+        ratings.add(userRating);
+    }
+
+    file.close();
+
+    // Run analysis with linear search
+    analyzer.analyzeMultipleReviews(reviews, ratings, false); // false for linear search
+
+    // Run analysis with binary search
+    analyzer.analyzeMultipleReviews(reviews, ratings, true); // true for binary search
+
+    return 0;
+}
