@@ -1,0 +1,70 @@
+#ifndef DYNAMICARRAY_HPP
+#define DYNAMICARRAY_HPP
+
+#include <iostream>
+
+template <typename T>
+class DynamicArray {
+private:
+    T* data;          // Pointer to the dynamic array
+    int capacity;     // Current capacity of the array
+    int size;         // Current size (number of elements) in the array
+
+    void resize(int newCapacity) {
+        T* newData = new T[newCapacity];
+        for (int i = 0; i < size; ++i) {
+            newData[i] = data[i];
+        }
+        delete[] data;
+        data = newData;
+        capacity = newCapacity;
+    }
+
+public:
+    DynamicArray() : capacity(10), size(0) {
+        data = new T[capacity];
+    }
+
+    ~DynamicArray() {
+        delete[] data;
+    }
+
+    void add(const T& element) {
+        if (size == capacity) {
+            resize(capacity * 2); // Double the capacity
+        }
+        data[size++] = element;
+    }
+
+    T& operator[](int index) {
+        if (index < 0 || index >= size) {
+            throw std::out_of_range("Index out of range");
+        }
+        return data[index];
+    }
+
+    const T& operator[](int index) const {
+        if (index < 0 || index >= size) {
+            throw std::out_of_range("Index out of range");
+        }
+        return data[index];
+    }
+
+    int getSize() const {
+        return size;
+    }
+
+    int getCapacity() const {
+        return capacity;
+    }
+
+    T* begin() {
+        return data;
+    }
+
+    T* end() {
+        return data + size;
+    }
+};
+
+#endif // DYNAMICARRAY_HPP
